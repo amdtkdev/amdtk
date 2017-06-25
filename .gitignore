@@ -6,6 +6,7 @@
 *.flist
 *.pyc
 *ipynb_checkpoints*
+sphinxdoc/build
 /tools/*
 !/tools/openfst-python3.patch
 /recipes/*
