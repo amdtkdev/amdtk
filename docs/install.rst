@@ -20,8 +20,7 @@ Finally, AMDTK supports python 3 or greater.
 Installing
 ==========
 
-In a terminal type:
-
-.. code-block:: bash
+In a terminal type
+::
     python setup.py install
 
