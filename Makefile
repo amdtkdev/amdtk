@@ -8,5 +8,3 @@ doc :
 
 install :
 	python setup.py install
-
-
