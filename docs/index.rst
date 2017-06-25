@@ -10,6 +10,8 @@ Welcome to AMDTK's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   parallel
+
 
 
 Indices and tables
