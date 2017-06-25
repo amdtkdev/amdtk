@@ -179,4 +179,3 @@ class MLPClassifier(object):
         val_and_grads = self._get_gradients(data, np.exp(log_resps))
         return val_and_grads[0], val_and_grads[1:]
 
-

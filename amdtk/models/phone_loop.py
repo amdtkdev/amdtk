@@ -63,6 +63,9 @@ class PhoneLoop(DiscreteLatentModel):
         random : boolean
             If True, initialize the mean of the Gaussian posteriors
             randomly.
+        sample_var : float or None
+            Variance of the for the sampling of the intial mean
+            parameters. If None (default), use "var".
 
         Returns
         -------
@@ -95,7 +98,11 @@ class PhoneLoop(DiscreteLatentModel):
             priors.append(prior)
 
         components = []
-        cov = np.diag(sample_var)
+        if s_var is not None:
+            s_var = np.ones(sample_var) * sample_var
+        else:
+            s_var = var
+        cov = np.diag(s_var)
         for i in range(tot_comp):
             if random:
                 s_mean = np.random.multivariate_normal(mean, cov)
@@ -167,7 +174,7 @@ class PhoneLoop(DiscreteLatentModel):
 
         return state_llh, c_given_s_resps
 
-    def units_stats(self, c_llhs, log_alphas, log_betas):
+    def _units_stats(self, c_llhs, log_alphas, log_betas):
         log_units_stats = np.zeros(self.n_units)
         norm = logsumexp(log_alphas[-1] + log_betas[-1])
         log_A = np.log(self.trans_mat.toarray())
@@ -382,10 +389,9 @@ class PhoneLoop(DiscreteLatentModel):
         if accumulate:
             tot_resps = state_resps[:, np.newaxis, :] * c_given_s_resps
             gauss_resps = tot_resps.reshape(-1, tot_resps.shape[-1])
-            print('gauss_resps.shape', gauss_resps.shape)
             if self.n_states > 1 :
-                units_stats = self.units_stats(state_llh, log_alphas,
-                                               log_betas)
+                units_stats = self._units_stats(state_llh, log_alphas,
+                                                log_betas)
             else:
                 units_stats = resps.sum(axis=0)
             state_stats = tot_resps.sum(axis=2)
