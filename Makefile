@@ -3,7 +3,7 @@
 doc :
 	$(MAKE) html -C sphinxdoc
 	rm docs/* -fr
-	cp sphinxdoc/build/* -r docs
+	cp sphinxdoc/build/html/* -r docs
 
 
 install :
