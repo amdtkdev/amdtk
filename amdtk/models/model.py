@@ -262,7 +262,7 @@ class DiscreteLatentModel(PersistentModel, metaclass=abc.ABCMeta):
             'posterior_class': self.latent_posterior.__class__,
             'posterior_data': self.latent_posterior.to_dict(),
             'components_class': self.components[0].__class__,
-            'components': [comp.to_dict() for comp in components]
+            'components': [comp.to_dict() for comp in self.components]
         }
 
     @staticmethod

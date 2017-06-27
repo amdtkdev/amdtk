@@ -37,7 +37,7 @@ from ipyparallel import Client
 
 
 # Create the module's logger.
-logger = logging.getLogger('parallel')
+logger = logging.getLogger(__name__)
 
 # Command to start the ipyparallel server.
 START_SERVER_CMD = 'ipcluster start {profile} -n {njobs} --daemonize --quiet'
@@ -50,6 +50,12 @@ STOP_SERVER_CMD = 'ipcluster stop {profile} --quiet'
 @contextmanager
 def parallel(profile, njobs, delay=20):
     try:
+        # It seems that ipyparallel add sneakily add another log
+        # handler the root level. We remove it to make sure this will
+        # not pollute our logs.
+        rootLogger = logging.getLogger()
+        nhandlers = len(rootLogger.handlers)
+
         # Start the ipyparallel server.
         logger.debug('starting ipyparallel server profile={profile}, '
                      'njobs={njobs}'.format(profile=profile, njobs=njobs))
@@ -65,6 +71,10 @@ def parallel(profile, njobs, delay=20):
         # Connect to the server.
         rc = Client(profile=profile)
         dview = rc[:]
+
+        if nhandlers < len(rootLogger.handlers):
+            rootLogger.removeHandler(rootLogger.handlers[-1])
+
         logger.info('connected to {length} jobs'.format(length=len(dview)))
         yield dview
     finally:

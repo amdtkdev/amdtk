@@ -98,8 +98,8 @@ class PhoneLoop(DiscreteLatentModel):
             priors.append(prior)
 
         components = []
-        if s_var is not None:
-            s_var = np.ones(sample_var) * sample_var
+        if sample_var is not None:
+            s_var = np.ones_like(prior_var) * sample_var
         else:
             s_var = var
         cov = np.diag(s_var)

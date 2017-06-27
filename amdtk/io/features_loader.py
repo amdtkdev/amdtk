@@ -33,7 +33,7 @@ from .utils import read_htk
 
 
 # Create the module's logger.
-logger = logging.getLogger('features_loader')
+logger = logging.getLogger(__name__)
 
 
 class FeaturesLoader(object):
@@ -45,8 +45,19 @@ class FeaturesLoader(object):
 
     """
 
-    def __init__(self, preprocessors):
-        self._preprocessors = preprocessors
+    def __init__(self):
+        self._preprocessors = []
+
+    def add_preprocessor(self, new_preprocessor):
+        """Adde a new preprocessor to the fetures loader.
+
+        Parameters
+        ----------
+        new_preprocessor : :class:`FeaturesPreprocessor`
+
+        """
+        self._preprocessors.append(new_preprocessor)
+
 
     def load(self, fname):
         """Load a features file.

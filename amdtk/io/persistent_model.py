@@ -28,6 +28,24 @@ DEALINGS IN THE SOFTWARE.
 import abc
 import pickle
 
+
+def load(fname):
+    """Helper function to load a PersistentModel.
+
+    Parameters
+    ----------
+    fname : string
+        Path to the stored model.
+
+    Returns
+    -------
+    model : :class:`PersistentModel`
+
+    """
+    with open(fname, 'rb') as fid:
+        return PersistentModel.load(fid)
+
+
 class PersistentModel(metaclass=abc.ABCMeta):
     """Base class for classes that can be serialized."""
 
@@ -60,18 +78,19 @@ class PersistentModel(metaclass=abc.ABCMeta):
         """
         pass
 
-    def save(self, file_obj):
+    def save(self, fname):
         """Store the model.
 
         Parameters
         ----------
-        file_obj : file object
-            File-like object  where to store the model.
+        fname : string
+            String where to store the model.
 
         """
         retval = self.to_dict()
         retval['class'] = self.__class__
-        pickle.dump(retval, file_obj)
+        with open(fname, 'wb') as fid:
+            pickle.dump(retval, fid)
 
     @staticmethod
     def load(file_obj):
