@@ -6,6 +6,7 @@ features to automatically discover phone-like units.
 
 """
 
+from .persistent_model import load
 from .persistent_model import PersistentModel
 
 from .utils import *

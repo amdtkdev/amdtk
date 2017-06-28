@@ -141,11 +141,14 @@ class EFDPrior(PersistentModel, metaclass=abc.ABCMeta):
     # -----------------------------------------------------------------
 
     def to_dict(self):
-        return {'natural_params': self._natural_params}
+        return {
+            'class': self.__class__,
+            'natural_params': self._natural_params
+        }
 
     @classmethod
     def load_from_dict(cls, model_data):
-        model = cls.__new__(Dirichlet)
+        model = cls.__new__(model_data['class'])
         model.natural_params = model_data['natural_params']
         return model
 

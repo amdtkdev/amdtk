@@ -27,26 +27,28 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import abc
+import logging
 import time
 import numpy as np
 from ipyparallel.util import interactive
 
+
+logger = logging.getLogger(__name__)
+
+
 class Optimizer(metaclass=abc.ABCMeta):
 
-    def __init__(self, dview, data_stats, args, model):
+    def __init__(self, dview, data_stats, fea_loader, args, model):
         self.dview = dview
+        self.data_stats = data_stats
+        self.fea_loader = fea_loader
         self.epochs = int(args.get('epochs', 1))
         self.batch_size = int(args.get('batch_size', 2))
         self.model = model
         self.time_step = 0
-        self.data_stats = data_stats
-
-        with self.dview.sync_imports():
-            import numpy
-            from amdtk import read_htk
 
         self.dview.push({
-            'data_stats': data_stats
+            'fea_loader': fea_loader
         })
 
     def run(self, data, callback, alignments=None):
@@ -74,8 +76,15 @@ class Optimizer(metaclass=abc.ABCMeta):
                 # Reshaped the list of features.
                 fea_list = shuffled_data[start:end]
                 n_utts = batch_size // len(self.dview)
-                new_fea_list = [fea_list[i:i + n_utts]  for i in
-                                range(0, len(fea_list), n_utts)]
+                try:
+                    new_fea_list = [fea_list[i:i + n_utts]  for i in
+                                    range(0, len(fea_list), n_utts)]
+                except ValueError as e:
+                    logger.error('error creating the batches. you probably '
+                                 'have specified too many jobs or too small '
+                                 'batch size')
+                    raise e
+
 
                 # Update the model.
                 objective = \
@@ -101,7 +110,7 @@ class StochasticVBOptimizer(Optimizer):
     @staticmethod
     @interactive
     def e_step(args_list):
-        import os
+        import numpy
 
         exp_llh = 0.
         acc_stats = None
@@ -110,31 +119,21 @@ class StochasticVBOptimizer(Optimizer):
         for arg in args_list:
             fea_file = arg
 
-            # Mean / Variance normalization.
-            data = read_htk(fea_file)
-            data -= data_stats['mean']
-            data /= numpy.sqrt(data_stats['var'])
+            # Load the data.
+            fea_data = fea_loader.load(fea_file)
 
-            # Check if the alignments is provided for this utterance.
-            if alignments is not None:
-                try:
-                    bname = os.path.basename(fea_file)
-                    key, ext = os.path.splitext(bname)
-                    ali = alignments[key]
-                except KeyError:
-                    ali = None
-            else:
-                ali = None
+            # Retrieve the alignments if any.
+            ali = fea_data.get('alignments', None)
 
             # Get the accumulated sufficient statistics for the
             # given set of features.
-            s_stats = model.get_sufficient_stats(data)
+            s_stats = model.get_sufficient_stats(fea_data['data'])
             posts, llh, new_acc_stats = model.get_posteriors(s_stats,
                                                              accumulate=True,
                                                              alignments=ali)
 
             exp_llh += numpy.sum(llh)
-            n_frames += len(data)
+            n_frames += len(fea_data['data'])
             if acc_stats is None:
                 acc_stats = new_acc_stats
             else:
@@ -142,16 +141,16 @@ class StochasticVBOptimizer(Optimizer):
 
         return (exp_llh, acc_stats, n_frames)
 
-
-    def __init__(self, dview, data_stats, args, model):
-        Optimizer.__init__(self, dview, data_stats, args, model)
+    def __init__(self, dview, data_stats, fea_loader, args, model):
+        Optimizer.__init__(self, dview, data_stats, fea_loader, args, model)
         self.lrate = float(args.get('lrate', 1))
 
     def train(self, fea_list, epoch, time_step, alignments=None):
         # Propagate the model to all the remote clients.
         self.dview.push({
             'model': self.model,
-            'alignments': alignments
+            'alignments': alignments,
+            'fea_loader': self.fea_loader
         })
 
         # Parallel accumulation of the sufficient statistics.
@@ -182,7 +181,7 @@ class SVAEStochasticVBOptimizer(Optimizer):
     @staticmethod
     @interactive
     def e_step(args_list):
-        import os
+        import numpy
 
         exp_llh = 0.
         acc_stats = None
@@ -192,29 +191,19 @@ class SVAEStochasticVBOptimizer(Optimizer):
         for arg in args_list:
             fea_file = arg
 
-            # Mean / Variance normalization.
-            data = read_htk(fea_file)
-            data -= data_stats['mean']
-            data /= numpy.sqrt(data_stats['var'])
+            # Load the data.
+            fea_data = fea_loader.load(fea_file)
 
-            # Check if the alignments is provided for this utterance.
-            if alignments is not None:
-                try:
-                    bname = os.path.basename(fea_file)
-                    key, ext = os.path.splitext(bname)
-                    ali = alignments[key]
-                except KeyError:
-                    ali = None
-            else:
-                ali = None
+            # Retrieve the alignments if any.
+            ali = fea_data.get('alignments', None)
 
             # Gradient of the model for the given mini-batch.
-            llh, new_acc_stats, grads = model.get_gradients(data,
+            llh, new_acc_stats, grads = model.get_gradients(fea_data['data'],
                                                             alignments=ali)
 
             # Accumulate.
             exp_llh += numpy.sum(llh)
-            n_frames += len(data)
+            n_frames += len(fea_data['data'])
             if acc_stats is None:
                 acc_stats = new_acc_stats
                 acc_grads = grads
@@ -226,10 +215,10 @@ class SVAEStochasticVBOptimizer(Optimizer):
         return (exp_llh, acc_grads, acc_stats, n_frames)
 
 
-    def __init__(self, dview, data_stats, args, model):
-        Optimizer.__init__(self, dview, data_stats, args, model)
-        self.lrate1 = float(args.get('lrate1', 1e-3))
-        self.lrate2 = float(args.get('lrate2', 1e-3))
+    def __init__(self, dview, data_stats, fea_loader, args, model):
+        Optimizer.__init__(self, dview, data_stats, fea_loader, args, model)
+        self.lrate_ae = float(args.get('lrate_ae', 1e-3))
+        self.lrate = float(args.get('lrate', 1e-3))
 
         # Initialize the mean / variance of the gradient for the
         # ADAM updates.
@@ -291,7 +280,7 @@ class SVAEStochasticVBOptimizer(Optimizer):
             time_step,
             .95,
             .999,
-            self.lrate1
+            self.lrate_ae
         )
 
         kl_div = self.model.prior_latent.kl_div_posterior_prior()
@@ -299,7 +288,7 @@ class SVAEStochasticVBOptimizer(Optimizer):
         # Scale the statistics.
         scale = self.data_stats['count'] / n_frames
         acc_stats *= scale
-        self.model.prior_latent.natural_grad_update(acc_stats, self.lrate2)
+        self.model.prior_latent.natural_grad_update(acc_stats, self.lrate)
 
         return (scale * exp_llh - kl_div) / self.data_stats['count']
 

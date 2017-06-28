@@ -74,10 +74,10 @@ def collect_stats(dview, fea_list, fea_loader):
     acc_stats = dview.map_sync(_collect_stats_job, fea_list)
 
     stats = np.asarray(acc_stats, dtype=object).sum(axis=0)
-    counts = stats[0]
-    mean = stats[1] / counts
-    var = (stats[2] / counts)  - mean**2
+    count = stats[0]
+    mean = stats[1] / count
+    var = (stats[2] / count)  - mean**2
 
-    return {'mean':mean, 'var':var, 'counts':counts}
+    return {'mean':mean, 'var':var, 'count':count}
 
 

@@ -257,16 +257,19 @@ class DiscreteLatentModel(PersistentModel, metaclass=abc.ABCMeta):
 
     def to_dict(self):
         return {
+            'class':self.__class__,
             'latent_prior_class': self.latent_prior.__class__,
             'latent_prior_data': self.latent_prior.to_dict(),
-            'posterior_class': self.latent_posterior.__class__,
-            'posterior_data': self.latent_posterior.to_dict(),
+            'latent_posterior_class': self.latent_posterior.__class__,
+            'latent_posterior_data': self.latent_posterior.to_dict(),
             'components_class': self.components[0].__class__,
             'components': [comp.to_dict() for comp in self.components]
         }
 
-    @staticmethod
+    @classmethod
     def load_from_dict(cls, model_data):
+        import pdb
+        pdb.set_trace()
         model = cls.__new__(model_data['class'])
         latent_prior_cls = model_data['latent_prior_class']
         latent_prior_data = model_data['latent_prior_data']
@@ -282,6 +285,7 @@ class DiscreteLatentModel(PersistentModel, metaclass=abc.ABCMeta):
         components_class = model_data['components_class']
         for comp_data in model_data['components']:
             comp = components_class.load_from_dict(comp_data)
+            components.append(comp)
         model.components = components
 
         model.post_update()
