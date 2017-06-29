@@ -170,7 +170,7 @@ class FeaturesPreprocessorLoadAlignments(FeaturesPreprocessor):
     The alignments will be associated to the key 'ali' in `fea_data`.
 
     """
-    def __init__(self, alignemnts):
+    def __init__(self, alignments):
         self._alignments = alignments
 
     @property
@@ -181,11 +181,11 @@ class FeaturesPreprocessorLoadAlignments(FeaturesPreprocessor):
         FeaturesPreprocessor.process(self, fname, fea_data)
 
         # Extract the name of the features file (without extension)
-        bname = os.path.basename(fea_file)
+        bname = os.path.basename(fname)
         key, ext = os.path.splitext(bname)
 
         # Look for the alignments corresponding to the file name.
-        fea_data['ali'] = alignments[key]
+        fea_data['ali'] = self._alignments[key]
 
         return fea_data
 
