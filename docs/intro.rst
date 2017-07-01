@@ -34,5 +34,5 @@ toolkit easy to access and to modify.
 Contact
 =======
 
-More questions ? Send an email at lucas.ondel@gmail.com
+More questions ? Send an email to lucas.ondel@gmail.com
 

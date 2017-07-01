@@ -5,9 +5,16 @@ Tutorial
 This tutorial explains step by step how to build a model to do phoneme
 recognition and/or discovery.
 
+.. note:: All along this tutorial we assume that you have imported
+    AMDTK in your python session as in the code below:
+    ::
 
-Basic opertions
-===============
+        import amdtk
+
+
+
+Basic operations
+================
 
 Parallelization
 ---------------
@@ -34,5 +41,11 @@ workers on you local machine) and should work "out-of-the-box".
 
 Loading features
 ----------------
+
+In AMDTK, the process of loading the acoustic features (MFCC,
+filterbank...) is a sequence of various operations such as loading the
+features into memory, whitening the features or loading the phonetic
+transcription associated to the features. This sequence of operation
+is encapsulated into the `FeaturesLoader` object.
 
 
