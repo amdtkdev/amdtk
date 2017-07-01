@@ -24,6 +24,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 """
 
+import logging
 import numpy as np
 from bisect import bisect
 from itertools import groupby
@@ -98,8 +99,8 @@ class PhoneLoop(DiscreteLatentModel):
             priors.append(prior)
 
         components = []
-        if s_var is not None:
-            s_var = np.ones(sample_var) * sample_var
+        if sample_var is not None:
+            s_var = np.ones_like(prior_var) * sample_var
         else:
             s_var = var
         cov = np.diag(s_var)
@@ -364,7 +365,7 @@ class PhoneLoop(DiscreteLatentModel):
     def get_posteriors(self, s_stats, accumulate=False,
                        alignments=None, gauss_posteriors=False):
 
-        # If the alignments is provided, we use a different regconition
+        # If the alignments are provided, we use a different regconition
         # structure.
         if alignments is not None:
             backup = self.set_linear_graph(alignments)
@@ -393,7 +394,7 @@ class PhoneLoop(DiscreteLatentModel):
                 units_stats = self._units_stats(state_llh, log_alphas,
                                                 log_betas)
             else:
-                units_stats = resps.sum(axis=0)
+                units_stats = state_resps.sum(axis=0)
             state_stats = tot_resps.sum(axis=2)
             gauss_stats = gauss_resps.dot(s_stats)
 
@@ -443,5 +444,73 @@ class PhoneLoop(DiscreteLatentModel):
 
         self.post_update()
 
+    # PersistentModel interface implementation.
     # -----------------------------------------------------------------
 
+    def to_dict(self):
+        return {
+            'class':self.__class__,
+            'n_units': self.n_units,
+            'n_states': self.n_states,
+            'n_comp_per_states': self.n_comp_per_states,
+            'latent_prior_class': self.latent_prior.__class__,
+            'latent_prior_data': self.latent_prior.to_dict(),
+            'latent_posterior_class': self.latent_posterior.__class__,
+            'latent_posterior_data': self.latent_posterior.to_dict(),
+            'state_prior_class': self.state_priors[0].__class__,
+            'state_prior_data': [state_prior.to_dict() for state_prior in
+                                 self.state_priors],
+            'state_posterior_class': self.state_posteriors[0].__class__,
+            'state_posterior_data': [state_posterior.to_dict()
+                                     for state_posterior in
+                                     self.state_posteriors],
+            'components_class': self.components[0].__class__,
+            'components': [comp.to_dict() for comp in self.components]
+        }
+
+    @classmethod
+    def load_from_dict(cls, model_data):
+        model = cls.__new__(model_data['class'])
+
+        model.n_units = model_data['n_units']
+        model.n_states = model_data['n_states']
+        model.n_comp_per_states = model_data['n_comp_per_states']
+
+        latent_prior_cls = model_data['latent_prior_class']
+        latent_prior_data = model_data['latent_prior_data']
+        model.latent_prior = \
+            latent_prior_cls.load_from_dict(latent_prior_data)
+
+        latent_posterior_cls = model_data['latent_posterior_class']
+        latent_posterior_data = model_data['latent_posterior_data']
+        model.latent_posterior = \
+            latent_posterior_cls.load_from_dict(latent_posterior_data)
+
+        state_prior_cls = model_data['state_prior_class']
+        state_priors = []
+        for data in model_data['state_prior_data']:
+            state_priors.append(
+                state_prior_cls.load_from_dict(data)
+            )
+        model.state_priors = state_priors
+
+        state_posterior_cls = model_data['state_posterior_class']
+        state_posteriors = []
+        for data in model_data['state_posterior_data']:
+            state_posteriors.append(
+                state_posterior_cls.load_from_dict(data)
+            )
+        model.state_posteriors = state_posteriors
+
+        components = []
+        components_class = model_data['components_class']
+        for comp_data in model_data['components']:
+            comp = components_class.load_from_dict(comp_data)
+            components.append(comp)
+        model.components = components
+
+        model.post_update()
+
+        return model
+
+    # -----------------------------------------------------------------

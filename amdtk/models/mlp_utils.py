@@ -200,7 +200,7 @@ class GaussianNeuralNetwork(NeuralNetwork):
 
         # Noise variable for the reparameterization trick.
         if "gpu" in theano.config.device:
-            srng = theano.sandbox.cuda.rng_curand.CURAND_RandomStreams()
+            srng = theano.sandbox.cuda.rng_curand.CURAND_RandomStreams(123)
         else:
             srng = T.shared_randomstreams.RandomStreams()
             self.eps = srng.normal((n_samples, self.mean.shape[0],

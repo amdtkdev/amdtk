@@ -33,7 +33,7 @@ from .utils import read_htk
 
 
 # Create the module's logger.
-logger = logging.getLogger('features_loader')
+logger = logging.getLogger(__name__)
 
 
 class FeaturesLoader(object):
@@ -45,8 +45,19 @@ class FeaturesLoader(object):
 
     """
 
-    def __init__(self, preprocessors):
-        self._preprocessors = preprocessors
+    def __init__(self):
+        self._preprocessors = []
+
+    def add_preprocessor(self, new_preprocessor):
+        """Adde a new preprocessor to the fetures loader.
+
+        Parameters
+        ----------
+        new_preprocessor : :class:`FeaturesPreprocessor`
+
+        """
+        self._preprocessors.append(new_preprocessor)
+
 
     def load(self, fname):
         """Load a features file.
@@ -159,7 +170,7 @@ class FeaturesPreprocessorLoadAlignments(FeaturesPreprocessor):
     The alignments will be associated to the key 'ali' in `fea_data`.
 
     """
-    def __init__(self, alignemnts):
+    def __init__(self, alignments):
         self._alignments = alignments
 
     @property
@@ -170,11 +181,11 @@ class FeaturesPreprocessorLoadAlignments(FeaturesPreprocessor):
         FeaturesPreprocessor.process(self, fname, fea_data)
 
         # Extract the name of the features file (without extension)
-        bname = os.path.basename(fea_file)
+        bname = os.path.basename(fname)
         key, ext = os.path.splitext(bname)
 
         # Look for the alignments corresponding to the file name.
-        fea_data['ali'] = alignments[key]
+        fea_data['ali'] = self._alignments[key]
 
         return fea_data
 

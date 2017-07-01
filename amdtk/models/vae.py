@@ -36,20 +36,25 @@ from .mlp_utils import GaussianNeuralNetwork
 from .mlp_utils import NeuralNetwork
 
 
-class SVAE(object):
+class SVAE(PersistentModel):
 
     def __init__(self, encoder_struct, decoder_struct, prior_latent,
                 n_samples=10):
 
-        self.encoder = GaussianNeuralNetwork(encoder_struct, [],
-                                             n_samples=n_samples)
-        self.decoder = GaussianNeuralNetwork(decoder_struct, [],
-                                             self.encoder.sample)
-        self.params = self.encoder.params + self.decoder.params
+        self.n_samples = n_samples
+        self.encoder_struct = encoder_struct
+        self.decoder_struct = decoder_struct
         self.prior_latent = prior_latent
+
         self._build()
 
     def _build(self):
+        self.encoder = GaussianNeuralNetwork(self.encoder_struct, [],
+                                             n_samples=self.n_samples)
+        self.decoder = GaussianNeuralNetwork(self.decoder_struct, [],
+                                             self.encoder.sample)
+        self.params = self.encoder.params + self.decoder.params
+
         # Mean and variance of the decoder.
         mean = T.reshape(
             self.decoder.mean,
@@ -112,9 +117,6 @@ class SVAE(object):
 
         # Clustering.
         return self.prior_latent.decode(s_stats, is_s_stats=True)
-        #resps, _, _ = self.prior_latent.get_posteriors(s_stats, True)
-
-        #return np.argmax(resps, axis=1)
 
     def get_gradients(self, data, alignments=None):
         mean, var = self.forward(data)
@@ -149,6 +151,36 @@ class SVAE(object):
         objective, grads = val_and_grads[0], val_and_grads[1:]
 
         return objective, acc_stats, grads
+
+    # PersistentModel interface implementation.
+    # -----------------------------------------------------------------
+
+    def to_dict(self):
+        return {
+            'prior_latent_class': self.prior_latent.__class__,
+            'prior_latent_data': self.prior_latent.to_dict(),
+            'encoder_struct': self.encoder_struct,
+            'decoder_struct': self.decoder_struct,
+            'n_samples': self.n_samples,
+            'params': [param.get_value() for param in self.params]
+        }
+
+    @classmethod
+    def load_from_dict(cls, model_data):
+        encoder_struct = model_data['encoder_struct']
+        decoder_struct = model_data['decoder_struct']
+        prior_latent_cls = model_data['prior_latent_class']
+        prior_latent = prior_latent_cls.load_from_dict(
+            model_data['prior_latent_data']
+        )
+        n_samples = model_data['n_samples']
+        model = SVAE(encoder_struct, decoder_struct, prior_latent, n_samples)
+        params = model_data['params']
+        for i, param in enumerate(model.params):
+            param.set_value(params[i])
+
+        return model
+
 
 class MLPClassifier(object):
 
