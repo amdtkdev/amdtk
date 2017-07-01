@@ -11,11 +11,9 @@ python packages, namely:
   * scipy
   * theano
   * ipyparallel
-Moreover, AMDTK does not ship any features extractor so you will most
-likely need to install an external tool like
-`HTK <http://htk.eng.cam.ac.uk>`_ / `Kaldi <http://kaldi-asr.org>`_
-to extract those.
-
+AMDTK does not ship any features extractor so you will most likely
+need to install an external tool like `HTK <http://htk.eng.cam.ac.uk>`_
+/ `Kaldi <http://kaldi-asr.org>`_ to extract those.
 
 
 Installing

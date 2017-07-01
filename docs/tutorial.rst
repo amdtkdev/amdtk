@@ -2,9 +2,15 @@
 Tutorial
 ********
 
+This tutorial explains step by step how to build a model to do phoneme
+recognition and/or discovery.
+
+
+Basic opertions
+===============
 
 Parallelization
-===============
+---------------
 
 Speech processing usually deals with big data set henceforth requiring
 the parallelization of computationally demanding operations. AMDTK
@@ -26,8 +32,7 @@ Starting the ipyparallel cluster is done as follows:
 workers on you local machine) and should work "out-of-the-box".
 
 
-Parallelization
-===============
+Loading features
+----------------
 
-Test
 
