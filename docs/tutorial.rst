@@ -1,6 +1,10 @@
 ********
-Parallel
+Tutorial
 ********
+
+
+Parallelization
+===============
 
 Speech processing usually deals with big data set henceforth requiring
 the parallelization of computationally demanding operations. AMDTK
@@ -20,4 +24,10 @@ Starting the ipyparallel cluster is done as follows:
 ``njobs`` is the number of workers requested. Settings ``profile`` to
 ``'default'`` will use the default environment (i.e. it will start the
 workers on you local machine) and should work "out-of-the-box".
+
+
+Parallelization
+===============
+
+Test
 

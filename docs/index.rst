@@ -12,9 +12,7 @@ Welcome to AMDTK's documentation!
 
    intro
    install
-   parallel
-
-
+   tutorial
 
 
 Indices and tables
