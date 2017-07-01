@@ -44,10 +44,16 @@ to configure your parallel environment.
 
 Starting the ipyparallel cluster is done as follows:
 ::
-    import amdtk
 
-    with amdtk.parallel(profile, njobs) as dview:
-        # do something with dview
+    >>> with amdtk.parallel('default', 4) as dview:
+    ...        result = dview.map_sync(lambda x: x**2, [1, 2, 3])
+    ...        logger.info('result = {result}'.format(result=result))
+
+    DEBUG 2017-07-01 17:54:00,704 [parallel] starting ipyparallel server profile=default, njobs=4
+    DEBUG 2017-07-01 17:54:01,571 [parallel] waiting 20 seconds for the server to start
+    INFO 2017-07-01 17:54:21,681 [parallel] connected to 4 jobs
+    INFO 2017-07-01 17:54:21,771 [<ipython-input-10-ce9e1b2a3303>] result = [1, 4, 9]
+    DEBUG 2017-07-01 17:54:21,771 [parallel] shutting down the ipyparallel server
 
 ``profile`` is the name of the desired ipyparallel profile and
 ``njobs`` is the number of workers requested. Settings ``profile`` to

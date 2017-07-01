@@ -72,9 +72,6 @@ def parallel(profile, njobs, delay=20):
         rc = Client(profile=profile)
         dview = rc[:]
 
-        with dview.sync_imports():
-            import theano
-
         if nhandlers < len(rootLogger.handlers):
             rootLogger.removeHandler(rootLogger.handlers[-1])
 
