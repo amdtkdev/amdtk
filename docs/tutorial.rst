@@ -22,7 +22,7 @@ Settings AMDTK's verbosity
 
 AMDTK uses the `logging <https://docs.python.org/3.6/library/logging.html>`_
 python module to output messages. By default, the verbosity level is
-set to the highest level `logging.DEBUG`. This behavior can be changed
+set to the highest level ``logging.DEBUG``. This behavior can be changed
 as in the following example:
 
 ::
@@ -42,7 +42,9 @@ which allows to create and shutdown a ipyparallel server within a python
 session. Please refer to the `ipyparallel documentation <https://ipyparallel.readthedocs.io/en/latest>`_
 to configure your parallel environment.
 
-Starting the ipyparallel cluster is done as follows:
+For instannce starting the ipyparallel profile and requesting for jobs
+is done as follows:
+
 ::
 
     >>> with amdtk.parallel('default', 4) as dview:
@@ -55,19 +57,20 @@ Starting the ipyparallel cluster is done as follows:
     INFO 2017-07-01 17:54:21,771 [<ipython-input-10-ce9e1b2a3303>] result = [1, 4, 9]
     DEBUG 2017-07-01 17:54:21,771 [parallel] shutting down the ipyparallel server
 
-``profile`` is the name of the desired ipyparallel profile and
-``njobs`` is the number of workers requested. Settings ``profile`` to
-``'default'`` will use the default environment (i.e. it will start the
-workers on you local machine) and should work "out-of-the-box".
+On some system the ipyparallel server can take some times to start and
+to create the nodes. The default behavior of AMDTK is to wait 20
+seconds before to attempt to connect to the nodes. If this is not
+enough you can give more time to the server:
+ ``amdtk.parallel('default', 4, delay=30)``
 
 
 Loading features
 ----------------
 
-In AMDTK, the process of loading the acoustic features (MFCC,
-filterbank...) is a sequence of various operations such as loading the
-features into memory, whitening the features or loading the phonetic
-transcription associated to the features. This sequence of operation
-is encapsulated into the `FeaturesLoader` object.
+The process of loading the acoustic features (MFCC, filterbank...) is
+a sequence of various operations such as loading the features into
+memory, whitening the features or loading the phonetic transcription
+associated to the features. This sequence of operation is encapsulated
+into the ``FeaturesLoader`` object.
 
 
