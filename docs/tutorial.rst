@@ -9,12 +9,28 @@ recognition and/or discovery.
     AMDTK in your python session as in the code below:
     ::
 
-        import amdtk
+        >>> import amdtk
 
 
 
 Basic operations
 ================
+
+
+Settings AMDTK's verbosity
+--------------------------
+
+AMDTK uses the `logging <https://docs.python.org/3.6/library/logging.html>`_
+python module to output messages. By default, the verbosity level is
+set to the highest level `logging.DEBUG`. This behavior can be changed
+as in the following example:
+
+::
+
+    >>> import logging
+    >>> logger = logging.getLogger('amdtk')
+    >>> logger.setLevel(logging.INFO)
+
 
 Parallelization
 ---------------
