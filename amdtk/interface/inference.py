@@ -123,7 +123,7 @@ class StochasticVBOptimizer(Optimizer):
             fea_data = fea_loader.load(fea_file)
 
             # Retrieve the alignments if any.
-            ali = fea_data.get('alignments', None)
+            ali = fea_data.get('ali', None)
 
             # Get the accumulated sufficient statistics for the
             # given set of features.
@@ -145,13 +145,9 @@ class StochasticVBOptimizer(Optimizer):
         Optimizer.__init__(self, dview, data_stats, fea_loader, args, model)
         self.lrate = float(args.get('lrate', 1))
 
-    def train(self, fea_list, epoch, time_step, alignments=None):
+    def train(self, fea_list, epoch, time_step):
         # Propagate the model to all the remote clients.
-        self.dview.push({
-            'model': self.model,
-            'alignments': alignments,
-            'fea_loader': self.fea_loader
-        })
+        self.dview.push({'model': self.model, 'fea_loader': fea_loader})
 
         # Parallel accumulation of the sufficient statistics.
         stats_list = self.dview.map_sync(StochasticVBOptimizer.e_step,
@@ -195,7 +191,7 @@ class SVAEStochasticVBOptimizer(Optimizer):
             fea_data = fea_loader.load(fea_file)
 
             # Retrieve the alignments if any.
-            ali = fea_data.get('alignments', None)
+            ali = fea_data.get('ali', None)
 
             # Gradient of the model for the given mini-batch.
             llh, new_acc_stats, grads = model.get_gradients(fea_data['data'],
@@ -249,12 +245,9 @@ class SVAEStochasticVBOptimizer(Optimizer):
             pmean[idx] = new_m
             pvar[idx] = new_v
 
-    def train(self, fea_list, epoch, time_step, alignments=None):
+    def train(self, fea_list, epoch, time_step):
         # Propagate the model to all the remote clients.
-        self.dview.push({
-            'model': self.model,
-            'alignments': alignments
-        })
+        self.dview.push({'model': self.model, 'fea_loader': fea_loader})
 
         # Parallel accumulation of the sufficient statistics.
         stats_list = self.dview.map_sync(SVAEStochasticVBOptimizer.e_step,
