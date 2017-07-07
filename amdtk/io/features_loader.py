@@ -185,7 +185,11 @@ class FeaturesPreprocessorLoadAlignments(FeaturesPreprocessor):
         key, ext = os.path.splitext(bname)
 
         # Look for the alignments corresponding to the file name.
-        fea_data['ali'] = self._alignments[key]
+        try:
+            fea_data['ali'] = self._alignments[key]
+        except KeyError:
+            logger.warning('missing key {key} in the alignments'.format(
+                key=key))
 
         return fea_data
 
