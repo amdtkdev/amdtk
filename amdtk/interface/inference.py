@@ -51,7 +51,7 @@ class Optimizer(metaclass=abc.ABCMeta):
             'fea_loader': fea_loader
         })
 
-    def run(self, data, callback, alignments=None):
+    def run(self, data, callback):
         start_time = time.time()
 
         for epoch in range(self.epochs):
@@ -87,9 +87,8 @@ class Optimizer(metaclass=abc.ABCMeta):
 
 
                 # Update the model.
-                objective = \
-                    self.train(new_fea_list, epoch + 1, self.time_step,
-                               alignments)
+                objective = self.train(new_fea_list, epoch + 1,
+                                       self.time_step)
 
                 # Monitor the convergence.
                 callback({
@@ -147,7 +146,7 @@ class StochasticVBOptimizer(Optimizer):
 
     def train(self, fea_list, epoch, time_step):
         # Propagate the model to all the remote clients.
-        self.dview.push({'model': self.model, 'fea_loader': fea_loader})
+        self.dview.push({'model': self.model, 'fea_loader': self.fea_loader})
 
         # Parallel accumulation of the sufficient statistics.
         stats_list = self.dview.map_sync(StochasticVBOptimizer.e_step,
@@ -247,7 +246,7 @@ class SVAEStochasticVBOptimizer(Optimizer):
 
     def train(self, fea_list, epoch, time_step):
         # Propagate the model to all the remote clients.
-        self.dview.push({'model': self.model, 'fea_loader': fea_loader})
+        self.dview.push({'model': self.model, 'fea_loader': self.fea_loader})
 
         # Parallel accumulation of the sufficient statistics.
         stats_list = self.dview.map_sync(SVAEStochasticVBOptimizer.e_step,

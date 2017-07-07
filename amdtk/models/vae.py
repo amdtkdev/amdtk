@@ -108,7 +108,7 @@ class SVAE(PersistentModel):
 
         return s_stats
 
-    def decode(self, data):
+    def decode(self, data, state_path=False):
         mean, var = self.forward(data)
 
         # Expected value of the sufficient statistics.
@@ -116,7 +116,8 @@ class SVAE(PersistentModel):
                         np.ones((len(mean), 2 * mean.shape[1]))]
 
         # Clustering.
-        return self.prior_latent.decode(s_stats, is_s_stats=True)
+        return self.prior_latent.decode(s_stats, state_path=state_path,
+                                        is_s_stats=True)
 
     def get_gradients(self, data, alignments=None):
         mean, var = self.forward(data)

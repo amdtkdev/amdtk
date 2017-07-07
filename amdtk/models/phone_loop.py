@@ -208,7 +208,7 @@ class PhoneLoop(DiscreteLatentModel):
         )
         if not state_path:
             path = [bisect(self.init_states, state) for state in path]
-            path = [x[0] for x in groupby(path)]
+            path = [x[0] - 1 for x in groupby(path)]
 
         return path
 
