@@ -6,7 +6,6 @@ features to automatically discover phone-like units.
 """
 
 from .mixture import Mixture
-from .mixture import DiscriminativeMixture
 from .phone_loop import PhoneLoop
 from .vae import MLPClassifier, SVAE
 

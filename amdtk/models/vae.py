@@ -153,6 +153,12 @@ class SVAE(PersistentModel):
 
         return objective, acc_stats, grads
 
+    # Features interface implementation.
+    # -----------------------------------------------------------------
+
+    def transform_features(self, data):
+        return data
+
     # PersistentModel interface implementation.
     # -----------------------------------------------------------------
 

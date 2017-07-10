@@ -191,14 +191,8 @@ class PhoneLoop(DiscreteLatentModel):
 
         return np.exp(log_units_stats)
 
-    def decode(self, data, state_path=False, is_s_stats=False):
-        if not is_s_stats:
-            s_stats = self.get_sufficient_stats(data)
-        else:
-            s_stats = data
-
+    def decode(self, s_stats, state_path=False):
         state_llh, c_given_s_resps = self._get_state_llh(s_stats)
-
         path = viterbi(
             self.init_prob,
             self.trans_mat,

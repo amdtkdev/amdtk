@@ -1,6 +1,6 @@
 
 """
-Base class for the generative / discriminative models.
+Base class for the generative structured Bayesian models.
 
 Copyright (C) 2017, Lucas Ondel
 
@@ -28,6 +28,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import abc
 import numpy as np
 from ..io.persistent_model import PersistentModel
+from ..io.features_loader import FeaturesPreprocessor
 
 
 class EFDStats(object):
@@ -71,7 +72,7 @@ class DiscreteLatentModel(PersistentModel, metaclass=abc.ABCMeta):
 
     NOTE
     ----
-    This implementation assume the joint distribution of the
+    This implementation assumes the joint distribution of the
     data and the latent variables to be a member of the Exponential
     family of distribution.
 
@@ -252,6 +253,12 @@ class DiscreteLatentModel(PersistentModel, metaclass=abc.ABCMeta):
         """
         pass
 
+    # Features interface implementation.
+    # -----------------------------------------------------------------
+
+    def transform_features(self, data):
+        return self.get_sufficient_stats(data)
+
     # PersistentModel interface implementation.
     # -----------------------------------------------------------------
 
@@ -286,73 +293,6 @@ class DiscreteLatentModel(PersistentModel, metaclass=abc.ABCMeta):
         for comp_data in model_data['components']:
             comp = components_class.load_from_dict(comp_data)
             components.append(comp)
-        model.components = components
-
-        model.post_update()
-
-        return model
-
-    # -----------------------------------------------------------------
-
-
-class DiscriminativeModel(PersistentModel, metaclass=abc.ABCMeta):
-    """Abstract base class for discriminative models."""
-
-    def __init__(self, components):
-        """Initialize a :class:`DiscriminativeModel`
-
-        Parameters
-        ----------
-        components : list or tuple of :class:`EFDLikelihood`
-            List of distributions / densities for the conditional
-            likelihood. No check is performed but we assumed that all
-            the elements of the list are of the same distribution /
-            density type.
-
-        """
-        self._components = components
-
-    @property
-    def components(self):
-        return self._components
-
-    @components.setter
-    def components(self, value):
-        self._components = value
-
-    def kl_div_posterior_prior(self):
-        """Sum of KL divergence between posteriors/priors.
-
-        The sum of KL divergence between posterior/prior of the
-        parameters of the model.
-
-        Returns
-        -------
-        kl_div : float
-            Kullback-Leibler divergence.
-        """
-        retval = 0.
-        for comp in self.components:
-            retval += comp.posterior.kl_div(comp.prior)
-        return retval
-
-    # PersistentModel interface implementation.
-    # -----------------------------------------------------------------
-
-    def to_dict(self):
-        return {
-            'components_class': self.components[0].__class__,
-            'components': [comp.to_dict() for comp in components]
-        }
-
-    @staticmethod
-    def load_from_dict(cls, model_data):
-        model = cls.__new__(model_data['class'])
-
-        components = []
-        components_class = model_data['components_class']
-        for comp_data in model_data['components']:
-            comp = components_class.load_from_dict(comp_data)
         model.components = components
 
         model.post_update()

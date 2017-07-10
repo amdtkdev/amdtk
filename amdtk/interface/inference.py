@@ -126,10 +126,8 @@ class StochasticVBOptimizer(Optimizer):
 
             # Get the accumulated sufficient statistics for the
             # given set of features.
-            s_stats = model.get_sufficient_stats(fea_data['data'])
-            posts, llh, new_acc_stats = model.get_posteriors(s_stats,
-                                                             accumulate=True,
-                                                             alignments=ali)
+            posts, llh, new_acc_stats = model.get_posteriors(
+                fea_data['data'], accumulate=True, alignments=ali)
 
             exp_llh += numpy.sum(llh)
             n_frames += len(fea_data['data'])

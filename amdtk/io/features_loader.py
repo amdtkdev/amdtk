@@ -78,14 +78,14 @@ class FeaturesLoader(object):
         """
         fea_data = dict()
         for preprocessor in self._preprocessors:
-            logger.debug('{name}'.format(name=preprocessor.name))
+            logger.debug('{desc}'.format(desc=preprocessor.description))
             fea_data = preprocessor.process(fname, fea_data)
         return fea_data
 
 class FeaturesPreprocessor(metaclass=abc.ABCMeta):
 
     @abc.abstractproperty
-    def name(self):
+    def description(self):
         """Readable name for logging."""
         pass
 
@@ -118,7 +118,7 @@ class FeaturesPreprocessorLoadHTK(FeaturesPreprocessor):
 
     """
     @property
-    def name(self):
+    def description(self):
         return "load htk features"
 
     def process(self, fname, fea_data):
@@ -133,7 +133,7 @@ class FeaturesPreprocessorLoadNumpy(FeaturesPreprocessor):
 
     """
     @property
-    def name(self):
+    def description(self):
         return "load numpy features"
 
     def process(self, fname, fea_data):
@@ -153,7 +153,7 @@ class FeaturesPreprocessorMeanVarNorm(FeaturesPreprocessor):
         self._data_stats = data_stats
 
     @property
-    def name(self):
+    def description(self):
         return 'mean/variance normalization'
 
     def process(self, fname, fea_data):
@@ -174,7 +174,7 @@ class FeaturesPreprocessorLoadAlignments(FeaturesPreprocessor):
         self._alignments = alignments
 
     @property
-    def name(self):
+    def description(self):
         return 'load alignments'
 
     def process(self, fname, fea_data):
@@ -191,5 +191,21 @@ class FeaturesPreprocessorLoadAlignments(FeaturesPreprocessor):
             logger.warning('missing key {key} in the alignments'.format(
                 key=key))
 
+        return fea_data
+
+
+class FeaturesPreprocessorModel(FeaturesPreprocessor):
+    """Transform the features to fit the inpute of a given model."""
+
+    def __init__(self, model):
+        self._model = model
+
+    @property
+    def description(self):
+        return "transform features for model={model}".format(
+            model=self._model.__class__)
+
+    def process(self, fname, fea_data):
+        fea_data['data'] = self._model.transform_features(fea_data['data'])
         return fea_data
 
