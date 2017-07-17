@@ -49,9 +49,9 @@ class SVAE(PersistentModel):
         self._build()
 
     def _build(self):
-        self.encoder = GaussianNeuralNetwork(self.encoder_struct, [],
+        self.encoder = GaussianNeuralNetwork(self.encoder_struct,
                                              n_samples=self.n_samples)
-        self.decoder = GaussianNeuralNetwork(self.decoder_struct, [],
+        self.decoder = GaussianNeuralNetwork(self.decoder_struct,
                                              self.encoder.sample)
         self.params = self.encoder.params + self.decoder.params
 
@@ -116,8 +116,7 @@ class SVAE(PersistentModel):
                         np.ones((len(mean), 2 * mean.shape[1]))]
 
         # Clustering.
-        return self.prior_latent.decode(s_stats, state_path=state_path,
-                                        is_s_stats=True)
+        return self.prior_latent.decode(s_stats, state_path=state_path)
 
     def get_gradients(self, data, alignments=None):
         mean, var = self.forward(data)

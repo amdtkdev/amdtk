@@ -26,9 +26,15 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 
 import abc
+import logging
 import numpy as np
 import theano
 import theano.tensor as T
+from theano.tensor.signal import pool
+
+
+# Create the module's logger.
+logger = logging.getLogger(__name__)
 
 
 def _linear(x):
@@ -48,7 +54,6 @@ ACTIVATIONS = {
 
 class MLPError(Exception):
     """Base class for exceptions in this module."""
-
     pass
 
 
@@ -100,31 +105,39 @@ def _init_bias(dim, borrow=True):
 class LogisticRegressionLayer(object):
 
     def __init__(self, inputs, dim_in, dim_out, activation):
-        self.inputs = inputs
+        self.inputs = inputs.flatten(2)
         self.dim_in = dim_in
         self.dim_out = dim_out
         weights = _init_weights_matrix(dim_in, dim_out, activation)
         bias = _init_bias(dim_out)
-        self.outputs = ACTIVATIONS[activation](T.dot(inputs, weights) + bias)
+        self.outputs = ACTIVATIONS[activation](T.dot(
+            self.inputs, weights) + bias)
         self.params = [weights, bias]
 
 class StdLayer(object):
 
     def __init__(self, inputs, dim_in, dim_out, activation):
-        self.inputs = inputs
+        if inputs is None:
+            self.inputs = T.matrix(dtype=theano.config.floatX)
+        else:
+            self.inputs = inputs.flatten(2)
         self.dim_in = dim_in
         self.dim_out = dim_out
         self.activation = activation
         weights = _init_weights_matrix(dim_in, dim_out, activation)
         bias = _init_bias(dim_out)
-        self.outputs = ACTIVATIONS[activation](T.dot(inputs, weights) + bias)
+        self.outputs = ACTIVATIONS[activation](
+            T.dot(self.inputs, weights) + bias)
         self.params = [weights, bias]
 
 
 class GaussianLayer(object):
 
     def __init__(self, inputs, dim_in, dim_out, activation):
-        self.inputs = inputs
+        if inputs is None:
+            self.inputs = T.matrix(dtype=theano.config.floatX)
+        else:
+            self.inputs = inputs.flatten(2)
         self.dim_in = dim_in
         self.dim_out = dim_out
         self.activation = activation
@@ -140,60 +153,106 @@ class GaussianLayer(object):
         self.outputs = self.mean
 
 
+class ConvLayer(object):
+
+    def __init__(self, inputs, fmap_dim_in, fmap_dim_out, f_height, f_width,
+                activation):
+        if inputs is None:
+            self.inputs = T.tensor4(dtype=theano.config.floatX)
+        else:
+            self.inputs = inputs.flatten(4)
+        self.fmap_dim_in = fmap_dim_in
+        self.fmap_dim_out = fmap_dim_out
+        self.f_height = f_height
+        self.f_width = f_width
+        self.activation = activation
+
+        w_bound = np.sqrt(fmap_dim_in * f_height * f_width)
+        weights = theano.shared(
+            np.asarray(
+                np.random.uniform(
+                    low=-1.0 / w_bound,
+                    high=1.0 / w_bound,
+                    size=(fmap_dim_out, fmap_dim_in, f_height, f_width)
+                ),
+                dtype=self.inputs.dtype
+            )
+        )
+
+        bias = theano.shared(
+            np.zeros(
+                (fmap_dim_out,),
+                dtype=self.inputs.dtype
+            )
+        )
+
+        out = T.nnet.conv2d(self.inputs, weights, border_mode='half')
+        out += bias.dimshuffle('x', 0, 'x', 'x')
+        self.outputs = ACTIVATIONS[activation](out)
+
+        self.params = [weights, bias]
+
+
+class PoolLayer(object):
+
+    def __init__(self, inputs, maxpool_height, maxpool_width):
+        if inputs is None:
+            self.inputs = T.tensor4(dtype=theano.config.floatX)
+        else:
+            self.inputs = inputs.flatten(4)
+        self.maxpool_height = maxpool_height
+        self.maxpool_width = maxpool_width
+        self.outputs = pool.pool_2d(
+            self.inputs,
+            (maxpool_height, maxpool_width),
+            ignore_border=True
+        )
+
+        # Pooling layer has no learnable parameters.
+        self.params = []
+
+
 # Possible layer types.
 LAYER_TYPES = {
    'standard': StdLayer,
+   'convolution': ConvLayer,
+   'pool': PoolLayer,
    'gaussian': GaussianLayer
 }
 
 
 class NeuralNetwork(object):
 
-    def __init__(self, structure, residuals, inputs=None):
-        if inputs is None:
-            self.inputs = T.matrix(dtype=theano.config.floatX)
-        else:
-            self.inputs = inputs
-
+    def __init__(self, structure, inputs=None):
         # Build the neural network.
         self.layers = []
         self.params = []
-        current_inputs = self.inputs
-        for layer_type, dim_in, dim_out, activation in structure:
-            self.layers.append(LAYER_TYPES[layer_type](current_inputs, dim_in,
-                                                       dim_out, activation))
+        current_inputs = inputs
+        for layer_struct in structure:
+            layer_type = layer_struct[0]
+            layer_params = layer_struct[1:]
+
+            logger.debug('create nnet layer type={layer_type} '
+                'params={params}'.format(layer_type=layer_type,
+                                         params=layer_params))
+
+            self.layers.append(
+                LAYER_TYPES[layer_type](
+                    current_inputs,
+                    *layer_params
+                )
+            )
             self.params += self.layers[-1].params
             current_inputs = self.layers[-1].outputs
 
-        # Add the residual connections.
-        for residual_in, residual_out in residuals:
-            dim_in = self.layers[residual_in].dim_in
-            dim_out = self.layers[residual_out].dim_out
-            weights = init_residual_weights_matrix(dim_in, dim_out)
-            self.params += [weights]
-            self.layers[residual_out].outputs += \
-                T.dot(self.layers[residual_in].inputs, weights)
-
+        self.inputs = self.layers[0].inputs
         self.outputs = self.layers[-1].outputs
-
-
-class MLP(NeuralNetwork):
-
-    def __init__(self, structure, residuals, inputs):
-        NeuralNetwork.__init__(self, structure, residuals, inputs)
-        self.log_pred = T.log(self.layers[-1].outputs)
-
-        # Build the functions.
-        self.forward = theano.function(
-            inputs=[self.inputs],
-            outputs=[self.log_pred]
-        )
 
 
 class GaussianNeuralNetwork(NeuralNetwork):
 
-    def __init__(self, structure, residuals, inputs=None, n_samples=10):
-        NeuralNetwork.__init__(self, structure, residuals, inputs)
+    def __init__(self, structure, inputs=None, n_samples=10):
+        NeuralNetwork.__init__(self, structure, inputs)
         self.mean = self.layers[-1].outputs
         self.var = self.layers[-1].var
         self.n_samples = n_samples
@@ -209,157 +268,12 @@ class GaussianNeuralNetwork(NeuralNetwork):
         # Latent variable.
         self.sample = self.mean + T.sqrt(self.var) * self.eps
 
-        self.sample = T.reshape(self.sample, (n_samples * self.mean.shape[0], -1))
+        self.sample = T.reshape(self.sample,
+            (n_samples * self.mean.shape[0], -1))
 
         # Build the functions.
         self.forward = theano.function(
             inputs=[self.inputs],
             outputs=[self.mean, self.var]
         )
-
-
-class MLPold(metaclass=abc.ABCMeta):
-    """Base class for MLP objects."""
-
-    @staticmethod
-    def init_layer_params(dim_in, dim_out, scale):
-        """Initialize a weights matrix and bias vector."""
-        #weights = np.random.randn(dim_in, dim_out)
-        weights = np.random.uniform(
-            low=-np.sqrt(6. / (dim_in + dim_out)),
-            high=np.sqrt(6. / (dim_in + dim_out)),
-            size=(dim_in, dim_out)
-        )
-        bias = np.zeros(dim_out)
-        return [scale * weights, bias]
-
-    @staticmethod
-    def forward(params, activation, data):
-        """Forward an input matrix through the Gaussian residual MLP."""
-        inputs = data
-        for idx in range(0, len(params), 2):
-            weights = params[idx]
-            bias = params[idx + 1]
-            outputs = np.dot(inputs, weights) + bias
-            inputs = activation(outputs)
-        return inputs
-
-class GaussianMLP(MLP):
-    """Static implementation of a Gaussian residual MLP."""
-
-    @staticmethod
-    def create(dim_in, dim_out, dim_h, n_layers, scale, precision):
-        """Create a Gaussian residual MLP."""
-        params = MLP.init_layer_params(dim_in, dim_h, scale)
-        for idx in range(n_layers - 1):
-            params += MLP.init_layer_params(dim_h, dim_h, scale)
-        params += MLP.init_layer_params(dim_h, 2 * dim_out, scale)
-
-        # Initialize the precision.
-        params[-1][dim_out:] -= np.log(precision)
-        return params
-
-    @staticmethod
-    def extract_params(params):
-        """Extract the different part of the Gaussian MLP."""
-        return [params[-2:], params[:-2]]
-
-    @staticmethod
-    def forward(params, activation, data):
-        """Forward an input matrix through the Gaussian residual MLP."""
-        linear_params, h_params = GaussianMLP.extract_params(params)
-        inputs = MLP.forward(h_params, activation, data)
-        outputs = np.dot(inputs, linear_params[0]) + linear_params[1]
-        mean, logvar = np.split(outputs, 2, axis=-1)
-        #var = np.log(1 + np.exp(logvar))
-        var = np.exp(logvar)
-        return mean, var
-
-    @staticmethod
-    def natural_params(mean, var):
-        np1 = - 1 / (2 * var)
-        np2 = mean / var
-        return np1, np2
-
-    @staticmethod
-    def std_params(np1, np2):
-        var = -1 / (2 * np1)
-        mean = np2 * var
-        return mean, var
-
-
-class GaussianResidualMLP(GaussianMLP):
-    """Static implementation of a Gaussian residual MLP."""
-
-    @staticmethod
-    def init_residual_params(dim_in, dim_out):
-        """Partial isometry initialization."""
-        if dim_out == dim_in:
-            return [np.identity(dim_in)]
-        d = max(dim_in, dim_out)
-        weights = np.linalg.qr(np.random.randn(d,d))[0][:dim_in,:dim_out]
-        return [weights]
-
-    @staticmethod
-    def create(dim_in, dim_out, dim_h, n_layers, scale, precision):
-        """Create a Gaussian residual MLP."""
-        params = GaussianMLP.create(dim_in, dim_out, dim_h, n_layers, scale,
-                                    precision)
-        #params += GaussianResidualMLP.init_residual_params(dim_in, dim_out)
-        return params
-
-    @staticmethod
-    def forward(params, activation, data):
-        """Forward an input matrix through the Gaussian residual MLP."""
-        #gauss_params, res_params = params[:-1], params[-1]
-        gauss_params = params
-        mean, var = GaussianMLP.forward(gauss_params, activation, data)
-        #mean = mean + np.dot(data, res_params)
-        mean = mean + data
-        return mean, var
-
-    @staticmethod
-    def _kl_div(mean_post, var_post, mean_prior, var_prior):
-        """KL divergence between the posterior and the prior."""
-        kl_div = (.5 * (mean_prior - mean_post)**2) / var_prior
-        ratio = var_post / var_prior
-        kl_div = kl_div + .5 * (ratio - 1 - np.log(ratio))
-        return np.sum(kl_div, axis=1)
-
-    @staticmethod
-    def sample(params, activation, inputs, prior_params=None):
-        """Sample from the Gaussian residual MLP."""
-        mean, var = GaussianResidualMLP.forward(params, activation, inputs)
-        eps = np.random.randn(*inputs.shape)
-        samples = mean + np.sqrt(var) * eps
-        if prior_params is not None:
-            kl_div = GaussianResidualMLP._kl_div(mean, var, prior_params[0],
-                                                 prior_params[1])
-            return samples, kl_div
-
-        return samples
-
-    @staticmethod
-    def sample_np(params, activation, inputs, exp_np1, exp_np2):
-        """Sample from the Gaussian residual MLP with nat. params."""
-        mean, var = GaussianResidualMLP.forward(params, activation, inputs)
-        np1, np2 = GaussianMLP.natural_params(mean, var)
-        prior_mean, prior_var = GaussianMLP.std_params(exp_np1, exp_np2)
-        post_mean, post_var = GaussianMLP.std_params(np1 + exp_np1,
-                                                     np2 + exp_np2)
-        eps = np.random.randn(*inputs.shape)
-        samples = post_mean + np.sqrt(post_var) * eps
-        kl_div = GaussianResidualMLP._kl_div(post_mean, post_var, prior_mean,
-                                             prior_var)
-        return samples, kl_div
-
-
-    @staticmethod
-    def llh(params, activation, inputs, targets):
-        """Log-likelihood of the Gaussian residual MLP."""
-        mean, var = GaussianResidualMLP.forward(params, activation, inputs)
-        N, D = targets.shape
-        retval = -.5 * np.sum(np.log(var), axis=1)
-        retval = retval - .5 * np.sum(((targets - mean) ** 2) / var, axis=1)
-        return retval
 

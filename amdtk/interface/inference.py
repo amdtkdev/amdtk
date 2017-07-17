@@ -144,7 +144,10 @@ class StochasticVBOptimizer(Optimizer):
 
     def train(self, fea_list, epoch, time_step):
         # Propagate the model to all the remote clients.
-        self.dview.push({'model': self.model, 'fea_loader': self.fea_loader})
+        self.dview.push({
+            'model': self.model,
+            'fea_loader': self.fea_loader,
+        })
 
         # Parallel accumulation of the sufficient statistics.
         stats_list = self.dview.map_sync(StochasticVBOptimizer.e_step,
@@ -194,8 +197,12 @@ class SVAEStochasticVBOptimizer(Optimizer):
             llh, new_acc_stats, grads = model.get_gradients(fea_data['data'],
                                                             alignments=ali)
 
+            sum_llh = numpy.sum(llh)
+            if numpy.isnan(sum_llh) or numpy.isinf(sum_llh):
+                continue
+
             # Accumulate.
-            exp_llh += numpy.sum(llh)
+            exp_llh += sum_llh
             n_frames += len(fea_data['data'])
             if acc_stats is None:
                 acc_stats = new_acc_stats
