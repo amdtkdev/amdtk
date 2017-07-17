@@ -29,6 +29,7 @@ import abc
 import logging
 import os
 import numpy as np
+from scipy.fftpack import dct
 from .utils import read_htk
 
 
@@ -207,5 +208,29 @@ class FeaturesPreprocessorModel(FeaturesPreprocessor):
 
     def process(self, fname, fea_data):
         fea_data['data'] = self._model.transform_features(fea_data['data'])
+        return fea_data
+
+
+class FeaturesPreprocessorStackFrames(FeaturesPreprocessor):
+    """Transform the features to fit the inpute of a given model."""
+
+    def __init__(self, n_frames):
+        self._n_frames = n_frames
+
+    @property
+    def description(self):
+        return "stack {n_frames} frames".format(n_frames=self._n_frames)
+
+    def process(self, fname, fea_data):
+        data = fea_data['data']
+        pad = self._n_frames
+        padded_data = np.r_[pad * [data[0]], data, pad * [data[1]]]
+        new_data = np.zeros((len(data), data.shape[1] * (2 * pad + 1)))
+        for i in range(len(data)):
+            start = i
+            end = start + 2 * pad + 1
+            new_data[i, :] = padded_data[start:end].reshape(-1)
+
+        fea_data['data'] = new_data
         return fea_data
 

@@ -18,3 +18,5 @@ from .features_loader import FeaturesPreprocessorLoadNumpy
 from .features_loader import FeaturesPreprocessorMeanVarNorm
 from .features_loader import FeaturesPreprocessorLoadAlignments
 from .features_loader import FeaturesPreprocessorModel
+from .features_loader import FeaturesPreprocessorStackFrames
+

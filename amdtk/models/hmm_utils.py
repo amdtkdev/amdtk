@@ -99,19 +99,19 @@ def backward(trans_mat, final_states, consts, lhs):
 def forward_backward(init_prob, trans_mat, init_states,
                      final_states, llhs):
     # Scale the log-likelihoods before to exponentiate.
-    log_scaling = llhs.max(axis=0)
-    scaled_llhs = llhs - log_scaling
+    log_scaling = np.minimum(llhs.max(axis=0), np.zeros(llhs.shape[1]))
+    sign = np.sign(log_scaling)
+    scaled_llhs = llhs + np.abs(log_scaling)
     lhs = np.exp(scaled_llhs)
 
     # Scaled forward-backward algorithm.
     log_alphas, consts = forward(init_prob, trans_mat, init_states, lhs.T)
     log_betas = backward(trans_mat, final_states, consts, lhs.T)
 
-
     # Remove the scaling constants.
-    acc_lconsts = np.cumsum(log_scaling + np.log(consts))
+    acc_lconsts = np.cumsum(-np.abs(log_scaling) + np.log(consts))
     acc_reversed_lconsts = np.zeros_like(acc_lconsts)
-    acc_reversed_lconsts[0:-1] = np.cumsum((log_scaling + \
+    acc_reversed_lconsts[0:-1] = np.cumsum((-np.abs(log_scaling) + \
         np.log(consts))[::-1])[::-1][1:]
     log_alphas += (acc_lconsts)[:, np.newaxis]
     log_betas += acc_reversed_lconsts[:, np.newaxis]
