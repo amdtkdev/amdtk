@@ -6,7 +6,7 @@ Prerequisites:
   - ipyparallel
 
 AMDTK installation instructions:
-----------------------------------
+--------------------------------
 In the AMDTK root directory run:
   $ python setup.py install
 
