@@ -356,7 +356,7 @@ class PhoneLoop(DiscreteLatentModel):
             retval += post.kl_div(self.state_priors[idx])
         return retval
 
-    def get_posteriors(self, s_stats, accumulate=False,
+    def get_posteriors(self, s_stats, ac_scale=1.0, accumulate=False,
                        alignments=None, gauss_posteriors=False):
 
         # If the alignments are provided, we use a different regconition
@@ -373,7 +373,7 @@ class PhoneLoop(DiscreteLatentModel):
             self.trans_mat,
             self.init_states,
             self.final_states,
-            state_llh.T
+            ac_scale * state_llh.T
         )
 
         # Compute the posteriors.

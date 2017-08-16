@@ -40,11 +40,11 @@ from ipyparallel import Client
 logger = logging.getLogger(__name__)
 
 # Command to start the ipyparallel server.
-START_SERVER_CMD = 'ipcluster start {profile} -n {njobs} --daemonize --quiet'
+START_SERVER_CMD = 'ipcluster start --profile {profile} -n {njobs} --daemonize --quiet'
 
 
 # Command to stop the ipyparallel server.
-STOP_SERVER_CMD = 'ipcluster stop {profile} --quiet'
+STOP_SERVER_CMD = 'ipcluster stop --profile {profile} --quiet'
 
 
 @contextmanager
