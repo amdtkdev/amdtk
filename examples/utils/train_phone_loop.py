@@ -4,7 +4,7 @@
 import logging
 import argparse
 import glob
-import importlib
+import os
 import ast
 import pickle
 import numpy as np
@@ -64,6 +64,8 @@ def main():
     group = parser.add_argument_group('Parallel')
     group.add_argument('--profile', default='default',
                        help='profile to use for ipyparallel (default)')
+    group.add_argument('--delay', default=20, type=int,
+                       help='waiting time for the ipyparalle server (20)')
     group.add_argument('--njobs', type=int, default=1,
                        help='number of parallel jobs to use (1)')
 
@@ -95,9 +97,9 @@ def main():
                        help='number of state per aoustic unit (1)')
     group.add_argument('--n_comp', type=int, default=1,
                        help='number of Gaussian components per hmm state (1)')
-    group.add_argument('--sample_var', type=float, default=1.,
+    group.add_argument('--sample_var', type=float, default=None,
                        help='variance for the initialization of the Gaussian '
-                            'components(1)')
+                            'components (None)')
     group.add_argument('--encoder', default=None,
                        help='encoder structure front-end (None)')
     group.add_argument('--decoder', default=None,
@@ -118,6 +120,7 @@ def main():
     # Mandatory arguments..
     # -----------------------------------------------------------------
     parser.add_argument('fea_list', help='list of features to train on')
+    parser.add_argument('tmp_dir', help='where to store temporary models')
     parser.add_argument('out_model', help='output model')
     parser.add_argument('out_stats', help='output statistics of the data')
 
@@ -173,7 +176,7 @@ def main():
 
     # Start the parallel environment..
     # -----------------------------------------------------------------
-    with amdtk.parallel(args.profile, args.njobs) as dview:
+    with amdtk.parallel(args.profile, args.njobs, delay=args.delay) as dview:
 
         # Before anything, we estimate the statistics of the training
         # data. We'll use these statistics to perform mean/variance
@@ -199,6 +202,7 @@ def main():
             dim = enc_struct[-1][2]
         else:
             dim = data_stats['mean'].shape[0]
+        logger.debug('features dimension for the phone-loop: {}'.format(dim))
 
         # Create a new phone loop model. We set the mean and the
         # variance to zero as we expect the features to be normalized.
@@ -230,11 +234,14 @@ def main():
 
         # Callback to monitor the convergence of the training.
         # -------------------------------------------------------------
+        tmp_dir = args.tmp_dir
         def callback(args):
             logger.info('epoch={epoch} batch={batch}/{n_batch} '
                         'elbo={objective:.4f}'.format(**args))
             if args['batch'] == args['n_batch']:
-                model.save('model_' + str(args['epoch']) + '.bin')
+                path = os.path.join(tmp_dir, 'model_' + str(args['epoch'])
+                                    + '.bin')
+                model.save(path)
 
         # Training.
         # -------------------------------------------------------------

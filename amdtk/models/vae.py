@@ -118,6 +118,25 @@ class SVAE(PersistentModel):
         # Clustering.
         return self.prior_latent.decode(s_stats, state_path=state_path)
 
+    def get_posteriors(self, data, ac_scale=1.0):
+        mean, var = self.forward(data)
+
+        # Expected value of the sufficient statistics.
+        s_stats = np.c_[mean**2 + var, mean,
+                        np.ones((len(mean), 2 * mean.shape[1]))]
+
+        # Clustering.
+        return self.prior_latent.get_posteriors(s_stats, ac_scale=1.0)
+
+    def _get_state_llh(self, data):
+        mean, var = self.forward(data)
+
+        # Expected value of the sufficient statistics.
+        s_stats = np.c_[mean**2 + var, mean,
+                        np.ones((len(mean), 2 * mean.shape[1]))]
+
+        return self.prior_latent._get_state_llh(s_stats)
+
     def get_gradients(self, data, alignments=None):
         mean, var = self.forward(data)
 

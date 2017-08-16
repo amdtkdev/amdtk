@@ -109,7 +109,7 @@ class StochasticVBOptimizer(Optimizer):
     @staticmethod
     @interactive
     def e_step(args_list):
-        import numpy
+        import numpy as np
 
         exp_llh = 0.
         acc_stats = None
@@ -129,7 +129,11 @@ class StochasticVBOptimizer(Optimizer):
             posts, llh, new_acc_stats = model.get_posteriors(
                 fea_data['data'], accumulate=True, alignments=ali)
 
-            exp_llh += numpy.sum(llh)
+            sum_llh = np.sum(llh)
+            if np.isnan(sum_llh) or np.isinf(sum_llh):
+                continue
+
+            exp_llh += sum_llh
             n_frames += len(fea_data['data'])
             if acc_stats is None:
                 acc_stats = new_acc_stats
