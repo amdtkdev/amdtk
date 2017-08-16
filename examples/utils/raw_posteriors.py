@@ -1,11 +1,10 @@
 
-"""Use a phone loop model to decode."""
+"""Use a phone loop model to generate acoustic units posteriors."""
 
 import logging
 import argparse
 import glob
 import importlib
-import ast
 import pickle
 import numpy as np
 import amdtk
@@ -26,7 +25,7 @@ def load_map(file_map):
     with open(file_map, 'r') as fid:
         for line in fid:
             tokens = line.strip().split()
-            retval[int(tokens[0])] = tokens[1]
+            retval[tokens[0]] = tokens[1]
     return retval
 
 
@@ -43,15 +42,6 @@ LOG_LEVELS = {
     'info': logging.INFO,
     'debug': logging.DEBUG
 }
-
-
-# Dummy phone map that append the letter 'a' before the index of the
-# acoustic unit.
-# ---------------------------------------------------------------------
-class DefaultPhoneMap(object):
-
-    def __getitem__(self, idx):
-        return 'a' + str(idx)
 
 
 def main():
@@ -83,19 +73,13 @@ def main():
                        default='info',  help='file format of the features '
                        '(info)')
 
-    # Group of options for the decoding.
-    # -----------------------------------------------------------------
-    group = parser.add_argument_group('Decoding')
-    group.add_argument('--state_path', action='store_true',
-                       help='output the state path')
-    group.add_argument('--id2phone_map', help='how to map the phone index')
-
     # Mandatory arguments..
     # -----------------------------------------------------------------
     parser.add_argument('model', help='the model to use')
     parser.add_argument('stats', help='statistics of the training data')
-    parser.add_argument('fea_list', help='list of utterance to decode')
-    parser.add_argument('outdir', help='directory where to store the labels')
+    parser.add_argument('fea_list', help='list of utterance to process')
+    parser.add_argument('outdir',
+                        help='archive where to store the posteriors')
 
     # Parse the command line.
     # -----------------------------------------------------------------
@@ -136,24 +120,20 @@ def main():
         features_loader.add_preprocessor(
             amdtk.FeaturesPreprocessorStackFrames(args.context)
         )
-    #features_loader.add_preprocessor(
-    #    amdtk.FeaturesPreprocessorMeanVarNorm(data_stats)
-    #)
+    features_loader.add_preprocessor(
+        amdtk.FeaturesPreprocessorMeanVarNorm(data_stats)
+    )
     features_loader.add_preprocessor(
         amdtk.FeaturesPreprocessorModel(model)
     )
 
-    # Prepare the phone map.
-    # -----------------------------------------------------------------
-    if args.id2phone_map:
-        phone_map = load_map(args.id2phone_map)
-    else:
-        phone_map = DefaultPhoneMap()
-
     # Job that decode the data and write the transcription on disk.
     # -----------------------------------------------------------------
-    def decode_job(fname):
+    def posteriors_job(fname):
+        import amdtk
         import os
+        import numpy as np
+        from scipy.misc import logsumexp
 
         # Extract the key of the utterance.
         # -------------------------------------------------------------
@@ -163,33 +143,36 @@ def main():
         # Decode the data.
         # -------------------------------------------------------------
         fea_data = fea_loader.load(fname)
-        decoded = model.decode(fea_data['data'])
+        state_llh, _  = model._get_state_llh(fea_data['data'])
+        log_norm = logsumexp(state_llh, axis=1)
+        state_llh = (state_llh.T - log_norm).T
 
-        # Write the decoded sequence on disk.
+        # "HTK trick" we transform the posteriors so that when loading
+        # it with HVite, it will yield the same results. For more
+        # details asks Lukas Burget <burget@fit.vutbr.cz>.
         # -------------------------------------------------------------
-        labels = [key]
-        labels += [phone_map[unit] for unit in decoded]
-        path = os.path.join(outdir, key + '.lab')
-        with open(path, 'w') as fid:
-            print(' '.join(labels), file=fid)
+        posts = np.exp(state_llh)
+        htk_data = np.sqrt(-2 * np.log(posts.clip(min=1e-10)))
+
+        # Write the decoded posteriors on disk.
+        # -------------------------------------------------------------
+        path = os.path.join(outdir, key + '.posts')
+        amdtk.write_htk(path, htk_data)
 
     # Start the parallel environment.
     # -----------------------------------------------------------------
     with amdtk.parallel(args.profile, args.njobs) as dview:
-
         # Global variable for the remote jobs.
         # -------------------------------------------------------------
         dview.push({
-            'fea_loader': features_loader,
-            'model': model,
             'outdir': args.outdir,
-            'state_path': args.state_path,
-            'phone_map': phone_map
+            'fea_loader': features_loader,
+            'model': model
         })
 
         # Decode and store the sequence of units.
         # -------------------------------------------------------------
-        dview.map_sync(decode_job, fea_list)
+        dview.map_sync(posteriors_job, fea_list)
 
 
 if __name__ == '__main__':
