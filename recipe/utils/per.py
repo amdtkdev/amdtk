@@ -13,7 +13,6 @@ import amdtk
 
 # Phone Error Rate computation. Taken from:
 # https://martin-thoma.com/word-error-rate-calculation/https://martin-thoma.com/word-error-rate-calculation
-# ---------------------------------------------------------------------
 def per(r, h):
     """
     Calculation of WER with Levenshtein distance.
@@ -66,7 +65,6 @@ def per(r, h):
 
 
 # Helper functions.
-# ---------------------------------------------------------------------
 
 def load_transcription(file_trans):
     retval = {}
@@ -97,21 +95,11 @@ def map_seq(seq, phone_map):
     return new_seq
 
 
-# Identity phone mapping.
-# ---------------------------------------------------------------------
-class IdentityPhoneMap(object):
-
-    def __getitem__(self, key):
-        return key
-
-
 # Logger.
-# ---------------------------------------------------------------------
 logger = logging.getLogger('amdtk')
 
 
 # Possible log-level.
-# ---------------------------------------------------------------------
 LOG_LEVELS = {
     'error': logging.ERROR,
     'warning': logging.WARNING,
@@ -121,7 +109,6 @@ LOG_LEVELS = {
 
 
 # Model's specific optimizer.
-# ---------------------------------------------------------------------
 OPTIMIZERS = {
     'hmm': amdtk.StochasticVBOptimizer,
     'svae': amdtk.SVAEStochasticVBOptimizer
@@ -130,11 +117,9 @@ OPTIMIZERS = {
 
 def main():
     # Argument parser.
-    # -----------------------------------------------------------------
     parser = argparse.ArgumentParser(description=__doc__)
 
     # Group of options for the parallelization.
-    # -----------------------------------------------------------------
     group = parser.add_argument_group('Parallel')
     group.add_argument('--profile', default='default',
                        help='profile to use for ipyparallel (default)')
@@ -142,60 +127,39 @@ def main():
                        help='number of parallel jobs to use (1)')
 
     # Group of options for the logger.
-    # -----------------------------------------------------------------
     group = parser.add_argument_group('Logging')
     group.add_argument('--log_level', choices=['debug', 'info', 'warning'],
                        default='info',  help='file format of the features '
                        '(info)')
 
-    # Group of options for the phone mapping.
-    # -----------------------------------------------------------------
-    group = parser.add_argument_group('Phone mapping')
-    group.add_argument('--ref_phone_map',
-                       help='phone map to apply on the reference (none)')
-    group.add_argument('--hyp_phone_map',
-                       help='phone map to apply on  the hypothesis (none)')
-
     # Mandatory arguments..
-    # -----------------------------------------------------------------
+    parser.add_argument('ref_phone_map',
+                       help='phone map to apply on the reference')
+    parser.add_argument('hyp_phone_map',
+                       help='phone map to apply on  the hypothesis')
     parser.add_argument('ref', help='reference transcription')
     parser.add_argument('hyp', help='hypothesis transcription')
 
     # Parse the command line.
-    # -----------------------------------------------------------------
     args = parser.parse_args()
 
     # Set the logging level.
-    # -----------------------------------------------------------------
     logging.getLogger('amdtk').setLevel(LOG_LEVELS[args.log_level])
 
     # Load the transcriptions.
-    # -----------------------------------------------------------------
     ref_trans = load_transcription(args.ref)
     hyp_trans = load_transcription(args.hyp)
 
     # Load the phone mapping if provided.
-    # -----------------------------------------------------------------
-    if args.ref_phone_map is not None:
-        logger.debug('using {phone_map} mapping for the reference'.format(
-            phone_map=args.ref_phone_map))
-        ref_phone_map = load_map(args.ref_phone_map)
-    else:
-        logger.debug('no phone map provided for the reference using '
-                     'identity mapping')
-        ref_phone_map = IdentityPhoneMap()
+    logger.debug('using {phone_map} mapping for the reference'.format(
+        phone_map=args.ref_phone_map))
+    ref_phone_map = load_map(args.ref_phone_map)
 
-    if args.hyp_phone_map is not None:
-        logger.debug('using {phone_map} mapping for the hypothesis'.format(
-            phone_map=args.hyp_phone_map))
-        hyp_phone_map = load_map(args.hyp_phone_map)
-    else:
-        logger.debug('no phone map provided for the hypothesis using '
-                     'identity mapping')
-        hyp_phone_map = IdentityPhoneMap()
+    logger.debug('using {phone_map} mapping for the hypothesis'.format(
+        phone_map=args.hyp_phone_map))
+    hyp_phone_map = load_map(args.hyp_phone_map)
 
     # Compute the phone error rate.
-    # -----------------------------------------------------------------
     tot_per = 0.
     count = 0
     for utt in ref_trans:
@@ -207,7 +171,6 @@ def main():
         except KeyError:
             logger.warning('no hypothesis for utterance {key}'.format(
                 key=utt))
-
 
     logger.info('phone error rate: {per:.2f} %'.format(
         per=100 * tot_per / count))

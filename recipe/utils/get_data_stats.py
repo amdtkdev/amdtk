@@ -11,18 +11,6 @@ import numpy as np
 import amdtk
 
 
-# Helper functions.
-# ---------------------------------------------------------------------
-
-def load_transcription(transcript_file):
-    trans = {}
-    with open(transcript_file, 'r') as fid:
-        for line in fid:
-            tokens = line.strip().split()
-            trans[tokens[0]] = [int(token) for token in tokens[1:]]
-    return trans
-
-
 def load_fea_list(file_list):
     fea_list = []
     with open(file_list, 'r') as fid:
@@ -43,14 +31,6 @@ LOG_LEVELS = {
     'warning': logging.WARNING,
     'info': logging.INFO,
     'debug': logging.DEBUG
-}
-
-
-# Model's specific optimizer.
-# ---------------------------------------------------------------------
-OPTIMIZERS = {
-    'hmm': amdtk.StochasticVBOptimizer,
-    'svae': amdtk.SVAEStochasticVBOptimizer
 }
 
 
@@ -263,3 +243,4 @@ if __name__ == '__main__':
 else:
     print('This script cannot be imported')
     exit(1)
+
