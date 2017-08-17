@@ -7,8 +7,8 @@
 log_level=debug                 # logging level (debug, info, warning, error)
 
 #### PARALLEL ENVIRONMENT ####
-profile=default                 # ipyparallel environment name
-njobs=4                         # number of jobs to use
+profile=sge                      # ipyparallel environment name
+njobs=20                         # number of jobs to use
 
 #### FEATURES ####
 fea_type=mbn                    # type of the features
@@ -20,21 +20,36 @@ if [ $mv_norm = true ]; then
     fea_dname=${fea_dname}_mvnorm
 fi                              # features level directory name
 
-#### PHONE-LOOP MODEL ####
+#### SVAE + PHONE-LOOP MODEL ####
 n_units=$(cat data/idx_phone_map.txt | wc -l) || exit 1
                                 # number of units (i.e. phone/pseudo-phone)
 n_states=3                      # number of HMM states per unit
 n_comp=4                        # number of Gaussian components per HMM state
-model_dname=ploop_u${n_units}_s${n_states}_c${n_comp}
+dim_fea=30                      # features dimensionality
+enc_size=500                    # number of units per layer for the encoder
+dec_size=500                    # number of units per layer for the decoder
+latent_size=30                  # dimensionality of the latent space
+encoder="[ \
+    (\"standard\", ${dim_fea}, ${enc_size}, \"tanh\"), \
+    (\"standard\", ${enc_size}, ${enc_size}, \"tanh\"), \
+    (\"gaussian\", ${enc_size}, ${latent_size}, \"linear\"), \
+]"                              # structure of the encoder network
+decoder="[ \
+    (\"standard\", ${latent_size}, ${dec_size}, \"tanh\"), \
+    (\"standard\", ${dec_size}, ${dec_size}, \"tanh\"), \
+    (\"gaussian\", ${dec_size}, ${latent_size}, \"linear\"), \
+]"                              # structure of the decoder network
+nlayers=$(python -c "import ast; print(len(ast.literal_eval('$encoder')) - 1)") || exit 1
+model_dname=svae_nl${nlayers}_es${enc_size}_ds${dec_size}_lat${latent_size}_ploop_u${n_units}_s${n_states}_c${n_comp}
                                 # model level directory name
 
 #### TRAINING ####
 train_set=train                 # training subset
-epochs=1                        # number of epochs
+epochs=100                      # number of epochs
 batch_size=400                  # size of the mini-batches (in utterance)
 hmm_lrate=1e-1                  # learning rate for the HMM parameters
 ae_lrate=1e-3                   # learning rate for the auto-encoder parameters
-#transcription=data/${train_set}/transcription_idx.txt
+transcription=data/${train_set}/transcription_idx.txt
                                 # transcription (leave empty for unit discovery)
 train_dname=${train_set}_e${epochs}_bs${batch_size}_hlr${hmm_lrate}_aelr${autoencoder_lrate}
                                 # training level directory name
@@ -100,12 +115,26 @@ if [ ! -f ${out_dir}/init_model/.done ]; then
     # Create the output directory.
     mkdir -p ${out_dir}/init_model
 
+    # Create some pseudo statistics to initialize the phone-loop.
+    python utils/create_stats.py \
+        --log_level ${log_level} \
+        ${latent_size} 0. 1. ${out_dir}/init_model/data_stats.bin || exit 1
+
+    # Create the phone-loop.
     python utils/create_phone_loop.py \
         --log_level ${log_level} \
         --n_units ${n_units} \
         --n_states ${n_states} \
         --n_comp ${n_comp} \
-        ${out_dir}/fea_loader/data_stats.bin \
+        ${out_dir}/init_model/data_stats.bin \
+        ${out_dir}/init_model/phone_loop.bin || exit 1
+
+    # Create the SVAE.
+    python utils/create_svae.py \
+        --log_level ${log_level} \
+        --encoder "${encoder}" \
+        --decoder "${decoder}" \
+        ${out_dir}/init_model/phone_loop.bin \
         ${out_dir}/init_model/model.bin || exit 1
 
     date > ${out_dir}/init_model/.done
@@ -140,6 +169,7 @@ if [ ! -f ${out_dir}/training/.done ]; then
         --lrate_hmm ${hmm_lrate} \
         --lrate_autoencoder ${ae_lrate} \
         ${use_transcription} \
+        ${out_dir}/training \
         data/${train_set}/${fea_type}/fea_list.txt \
         ${out_dir}/fea_loader/fea_loader.bin \
         ${out_dir}/fea_loader/data_stats.bin \
@@ -154,16 +184,19 @@ fi
 # Decode the data.
 #
 
+epoch=100
+decode_dir=decode_${epoch}
+
 for subset in ${decode_sets}; do
 
-    if [ ! -f ${out_dir}/decode/${subset}/labels/.done ]; then
+    if [ ! -f ${out_dir}/${decode_dir}/${subset}/labels/.done ]; then
 
         echo "==================================================================="
         echo "                         Decoding $subset set                      "
         echo "==================================================================="
 
         # Create the output directory.
-        mkdir -p ${out_dir}/decode/${subset}/labels
+        mkdir -p ${out_dir}/${decode_dir}/${subset}/labels
 
         python utils/decode.py \
             --log_level ${log_level} \
@@ -172,16 +205,16 @@ for subset in ${decode_sets}; do
             data/idx_phone_map.txt \
             ${out_dir}/fea_loader/fea_loader.bin \
             ${out_dir}/fea_loader/data_stats.bin \
-            ${out_dir}/init_model/model.bin \
+            ${out_dir}/training/model_${epoch}.bin \
             data/${subset}/${fea_type}/fea_list.txt \
-            ${out_dir}/decode/${subset}/labels || exit 1
+            ${out_dir}/${decode_dir}/${subset}/labels || exit 1
 
         # Gather all the transcription into a single file.
-        find ${out_dir}/decode/${subset}/labels -name '*lab' \
+        find ${out_dir}/${decode_dir}/${subset}/labels -name '*lab' \
             -exec cat {} \; \
-            > ${out_dir}/decode/${subset}/labels/transcription.txt || exit 1
+            > ${out_dir}/${decode_dir}/${subset}/labels/transcription.txt || exit 1
 
-        date > ${out_dir}/decode/${subset}/labels/.done
+        date > ${out_dir}/${decode_dir}/${subset}/labels/.done
     fi
 done
 
@@ -192,14 +225,14 @@ done
 
 for subset in ${decode_sets}; do
 
-    if [ ! -f ${out_dir}/decode/${subset}/per/.done ]; then
+    if [ ! -f ${out_dir}/${decode_dir}/${subset}/per/.done ]; then
 
         echo "==================================================================="
         echo "          Computing phone error rate for $subset set               "
         echo "==================================================================="
 
         # Create the output directory.
-        mkdir -p ${out_dir}/decode/${subset}/per
+        mkdir -p ${out_dir}/${decode_dir}/${subset}/per
 
         python utils/per.py \
             --log_level ${log_level} \
@@ -208,9 +241,9 @@ for subset in ${decode_sets}; do
             data/ref_phone_map.txt \
             data/hyp_phone_map.txt \
             data/${subset}/transcription.txt \
-            ${out_dir}/decode/${subset}/labels/transcription.txt || exit 1
+            ${out_dir}/${decode_dir}/${subset}/labels/transcription.txt || exit 1
 
-        date > ${out_dir}/decode/${subset}/per/.done
+        date > ${out_dir}/${decode_dir}/${subset}/per/.done
     fi
 done
 

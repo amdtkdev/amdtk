@@ -44,28 +44,9 @@ def main():
                        default='info',  help='file format of the features '
                        '(info)')
 
-    # Group of options for the parallelization.
-    group = parser.add_argument_group('Parallel')
-    group.add_argument('--profile', default='default',
-                       help='profile to use for ipyparallel (default)')
-    group.add_argument('--njobs', type=int, default=1,
-                       help='number of parallel jobs to use (1)')
-
-    # Group of options for the features loader.
-    group = parser.add_argument_group('Features Extractor')
-    group.add_argument('--file_format', choices=['htk', 'npy'] ,
-                       default='htk',
-                       help='file format of the features (htk)')
-    group.add_argument('--mv_norm', default=None, action='store_true',
-                       help='add mean/variance normalization (None)')
-    group.add_argument('--context', type=int, default=0,
-                       help='number of frames (in each time direction) to '
-                            'stack (0)')
-
-    # Mandatory arguments..
-    parser.add_argument('fea_list', help='list of features of the database')
+    # Mandatory arguments.
+    parser.add_argument('fea_dim', help='features dimension')
     parser.add_argument('data_stats', help='output statistics of the data')
-    parser.add_argument('fea_loader', help='output features loader')
 
     # Parse the command line.
     args = parser.parse_args()

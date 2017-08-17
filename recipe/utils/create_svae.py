@@ -1,5 +1,5 @@
 
-"""Create a pseudo statistics to initialize HMM/GMM operating in latent space."""
+"""Train a phone-loop model."""
 
 import logging
 import argparse
@@ -33,15 +33,17 @@ def main():
     group.add_argument('--log_level', choices=['debug', 'info', 'warning'],
                        default='info',  help='file format of the features '
                        '(info)')
+    group.add_argument('--encoder', default=None,
+                       help='encoder structure front-end (None)')
+    group.add_argument('--decoder', default=None,
+                       help='decoder structure backend (None)')
 
-    # Mandatory arguments..
-    parser.add_argument('fea_dim', type=int,
-                        help='dimensionality of the features')
-    parser.add_argument('mean', type=float,
-                        help='mean of the output statistics')
-    parser.add_argument('var', type=float,
-                        help='variance of the output statistics')
-    parser.add_argument('stats', help='output statistics')
+    # Group of options for the model.
+    group = parser.add_argument_group('Model')
+
+    # Mandatory arguments.
+    parser.add_argument('prior', help='statistics of the training data')
+    parser.add_argument('out_model', help='output model')
 
     # Parse the command line.
     args = parser.parse_args()
@@ -49,17 +51,16 @@ def main():
     # Set the logging level.
     logging.getLogger('amdtk').setLevel(LOG_LEVELS[args.log_level])
 
-    # Create the pseudo statistics.
-    data_stats = {
-        'mean': args.mean * np.ones(args.fea_dim),
-        'var': args.var * np.ones(args.fea_dim),
-        'count': 1,
-        'mv_norm': False
-    }
+    # Load the prior.
+    prior = amdtk.load(args.prior)
 
-    # Store the statistics.
-    with open(args.stats, 'wb') as fid:
-        pickle.dump(data_stats, fid)
+    # Create SVAE model.
+    enc_struct = ast.literal_eval(args.encoder)
+    dec_struct = ast.literal_eval(args.decoder)
+    model = amdtk.SVAE(enc_struct, dec_struct, prior, n_samples=10)
+
+    # Store the model and the statistics of the data.
+    model.save(args.out_model)
 
 
 if __name__ == '__main__':
@@ -67,4 +68,3 @@ if __name__ == '__main__':
 else:
     print('This script cannot be imported')
     exit(1)
-

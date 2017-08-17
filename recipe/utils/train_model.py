@@ -3,6 +3,7 @@
 
 import logging
 import argparse
+import os
 import glob
 import importlib
 import ast
@@ -80,6 +81,7 @@ def main():
     group.add_argument('--transcription', help='transcription of the training')
 
     # Mandatory arguments..
+    parser.add_argument('tmpdir', help='where to store temporary models')
     parser.add_argument('fea_list', help='list of features to train on')
     parser.add_argument('fea_loader', help='features loader')
     parser.add_argument('data_stats', help='training data statistics')
@@ -131,11 +133,14 @@ def main():
             optimizer_class = amdtk.StochasticVBOptimizer
 
         # Callback to monitor the convergence of the training.
+        tmpdir = args.tmpdir
         def callback(args):
             logger.info('epoch={epoch} batch={batch}/{n_batch} '
                         'elbo={objective:.4f}'.format(**args))
-            #if args['batch'] == args['n_batch']:
-            #    model.save('model_' + str(args['epoch']) + '.bin')
+            if args['batch'] == args['n_batch']:
+                path = os.path.join(tmpdir,
+                                    'model_' + str(args['epoch']) + '.bin')
+                model.save(path)
 
         # Training.
         train_args = {
