@@ -1,9 +1,8 @@
 # Helper commands to install AMDTK
 
 doc :
-	$(MAKE) html -C sphinxdoc
-	rm docs/* -fr
-	cp sphinxdoc/build/html/* -r docs
+	$(MAKE) html -C docs
+	tar cjf docs.tar.bz2 docs
 
 
 install :

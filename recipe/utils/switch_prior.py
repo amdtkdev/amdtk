@@ -63,20 +63,16 @@ def main():
 
     # Change the prior.
     # -----------------------------------------------------------------
-    #model.latent_prior = \
-    #    copy.deepcopy(model.latent_posterior)
-    #for i, posterior in enumerate(model.state_posteriors):
-    #    model.state_priors[i] = copy.deepcopy(posterior)
-    #for comp in model.components:
-    #    comp.prior = copy.deepcopy(comp.posterior)
-    #model.post_update()
-    model.prior_latent.latent_prior = \
-        copy.deepcopy(model.prior_latent.latent_posterior)
-    for i, posterior in enumerate(model.prior_latent.state_posteriors):
-        model.prior_latent.state_priors[i] = copy.deepcopy(posterior)
-    for comp in model.prior_latent.components:
-        comp.prior = copy.deepcopy(comp.posterior)
-    model.prior_latent.post_update()
+    if model.__class__ == amdtk.PhoneLoop:
+        raise NotImplementedError()
+    else:
+        model.prior_latent.latent_prior = \
+            copy.deepcopy(model.prior_latent.latent_posterior)
+        for i, posterior in enumerate(model.prior_latent.state_posteriors):
+            model.prior_latent.state_priors[i] = copy.deepcopy(posterior)
+        for comp in model.prior_latent.components:
+            comp.prior = copy.deepcopy(comp.posterior)
+        model.prior_latent.post_update()
 
     # Store the model and the statistics of the data.
     # -------------------------------------------------------------
