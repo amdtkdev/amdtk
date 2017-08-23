@@ -33,7 +33,7 @@ train_set=train                 # training subset
 epochs=50                       # number of epochs
 batch_size=400                  # size of the mini-batches (in utterance)
 hmm_lrate=1e-1                  # learning rate for the HMM parameters
-ae_lrate=1e-3                   # learning rate for the auto-encoder parameters
+#ae_lrate=1e-3                  # learning rate for the auto-encoder parameters
 transcription=data/${train_set}/transcription_idx.txt
                                 # transcription (leave empty for unit discovery)
 train_dname=${train_set}_e${epochs}_bs${batch_size}_hlr${hmm_lrate}_aelr${autoencoder_lrate}
@@ -188,30 +188,30 @@ done
 
 
 # Step 5:
-# Compute the phone error rate.
+# Compute the phone error rate (use it only if you did a supervised training).
 #
-
-for subset in ${decode_sets}; do
-
-    if [ ! -f ${out_dir}/decode/${subset}/per/.done ]; then
-
-        echo "==================================================================="
-        echo "          Computing phone error rate for $subset set               "
-        echo "==================================================================="
-
-        # Create the output directory.
-        mkdir -p ${out_dir}/decode/${subset}/per
-
-        python utils/per.py \
-            --log_level ${log_level} \
-            --profile ${profile} \
-            --njobs ${njobs} \
-            data/ref_phone_map.txt \
-            data/hyp_phone_map.txt \
-            data/${subset}/transcription.txt \
-            ${out_dir}/decode/${subset}/labels/transcription.txt || exit 1
-
-        date > ${out_dir}/decode/${subset}/per/.done
-    fi
-done
+#
+#for subset in ${decode_sets}; do
+#
+#    if [ ! -f ${out_dir}/decode/${subset}/per/.done ]; then
+#
+#        echo "==================================================================="
+#        echo "          Computing phone error rate for $subset set               "
+#        echo "==================================================================="
+#
+#        # Create the output directory.
+#        mkdir -p ${out_dir}/decode/${subset}/per
+#
+#        python utils/per.py \
+#            --log_level ${log_level} \
+#            --profile ${profile} \
+#            --njobs ${njobs} \
+#            data/ref_phone_map.txt \
+#            data/hyp_phone_map.txt \
+#            data/${subset}/transcription.txt \
+#            ${out_dir}/decode/${subset}/labels/transcription.txt || exit 1
+#
+#        date > ${out_dir}/decode/${subset}/per/.done
+#    fi
+#done
 
